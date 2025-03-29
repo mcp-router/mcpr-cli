@@ -19,7 +19,7 @@ npm install -g mcpr-cli
 ## Usage
 
 ```bash
-# Connect to a local MCP HTTP server (default: localhost:3030)
+# Connect to a local MCP HTTP server (default: localhost:3282)
 mcpr connect
 
 # Display help

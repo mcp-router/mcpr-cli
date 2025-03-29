@@ -18,7 +18,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 const SERVER_NAME = 'MCP Router';
-const VERSION = '0.0.1';
+const VERSION = '0.0.2';
 
 /**
  * Executes the connect command, connecting to an existing
@@ -47,11 +47,13 @@ export async function executeConnect(args: string[] = []): Promise<void> {
 function parseArgs(args: string[]): {
   host: string;
   port: number;
+  token: string | null;
 } {
   // Default values
-  const options = {
+  const options: { host: string; port: number; token: string | null } = {
     host: 'localhost',
-    port: 3030
+    port: 3282,
+    token: null
   };
   
   // Parse arguments
@@ -66,6 +68,9 @@ function parseArgs(args: string[]): {
       }
     } else if (arg === '--host' && i + 1 < args.length) {
       options.host = args[i + 1];
+      i++;
+    } else if ((arg === '--token' || arg === '-t') && i + 1 < args.length) {
+      options.token = args[i + 1];
       i++;
     }
   }
@@ -88,17 +93,17 @@ interface PromptsResponse {
   prompts: any[];
 }
 
-
-
 /**
  * HTTP-based MCP client for communicating with the MCP HTTP server
  */
 class HttpMcpClient {
   private baseUrl: string;
   private clientName: string | null = null;
+  private token: string | null = null;
   
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, token: string | null = null) {
     this.baseUrl = baseUrl;
+    this.token = token;
   }
   
   /**
@@ -121,6 +126,11 @@ class HttpMcpClient {
     // Add client name to headers if available
     if (this.clientName) {
       headers['X-MCP-Client-Name'] = this.clientName;
+    }
+    
+    // Add authorization token if available
+    if (this.token) {
+      headers['X-MCP-Token'] = this.token;
     }
     
     return headers;
@@ -236,10 +246,12 @@ class HttpMcpBridgeServer {
   private server: Server;
   private client: HttpMcpClient;
   private baseUrl: string;
+  private token: string | null;
   
-  constructor(options: { host: string; port: number }) {
+  constructor(options: { host: string; port: number; token: string | null }) {
     this.baseUrl = `http://${options.host}:${options.port}`;
-    this.client = new HttpMcpClient(this.baseUrl);
+    this.token = options.token;
+    this.client = new HttpMcpClient(this.baseUrl, this.token);
     
     // Initialize the MCP server
     this.server = new Server(
@@ -433,8 +445,14 @@ class HttpMcpBridgeServer {
 
       let response;
       try {
+        const headers: Record<string, string> = {};
+        if (this.token) {
+          headers['X-MCP-Token'] = this.token;
+        }
+        
         response = await fetch(`${this.baseUrl}/api/test`, {
-          signal: controller.signal
+          signal: controller.signal,
+          headers
         }).finally(() => clearTimeout(timeoutId));
       } catch (fetchError: any) {
         if (fetchError.code === 'ECONNREFUSED') {
@@ -467,8 +485,9 @@ class HttpMcpBridgeServer {
       }
     } catch (error: any) {
       console.error('Failed to connect to MCP HTTP Server:', error.message);
-      console.error('Make sure the Electron application is running with the HTTP server enabled on port 3030');
+      console.error('Make sure the Electron application is running with the HTTP server enabled on port 3282');
       console.error('If the port is different, specify it with --port option');
+      console.error('If authentication is required, provide an access token with --token option');
       throw error;
     }
   }

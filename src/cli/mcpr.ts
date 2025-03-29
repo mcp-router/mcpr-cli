@@ -2,9 +2,6 @@
 import { executeConnect } from './commands/connect.js';
 import { executeHelp } from './commands/help.js';
 import { executeVersion } from './commands/version.js';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-import { readFileSync } from 'fs';
 
 const VERSION = "0.0.1"
 

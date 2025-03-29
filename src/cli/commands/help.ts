@@ -3,25 +3,19 @@
  */
 export function executeHelp(): void {
   console.log(`
-MCP Router CLI (mcpr) - Command-line tool for Model Context Protocol Router
+  MCPR CLI - Model Context Protocol Router Command Line Interface
 
-Usage:
-  mcpr [command] [options]
+  Usage:
+    mcpr-cli <command> [options]
 
-Commands:
-  connect     Connect to an existing MCP HTTP Server running in the Electron application
-    Options:
-      --host <hostname>  Specify the host (default: localhost)
-      --port <port>      Specify the port (default: 3030)
-  
-  version     Display the current version of mcpr
-  help        Display this help information
+  Commands:
+    connect   Connect to an MCP HTTP server
+    version   Show the CLI version
+    help      Show this help message
 
-Examples:
-  mcpr connect                       Connect to the local MCP HTTP Server
-  mcpr connect --port 8080           Connect to the local MCP HTTP Server on port 8080
-  mcpr connect --host api.example.com --port 3030  Connect to a remote MCP HTTP Server
-  mcpr version                       Show version information
-  mcpr help                          Display this help information
+  Connect Options:
+    --host <host>   Specify the host (default: localhost)
+    --port <port>   Specify the port (default: 3282)
+    --token, -t <token>   Provide an access token for authentication
   `);
 }
