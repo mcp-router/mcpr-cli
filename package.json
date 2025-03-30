@@ -1,6 +1,6 @@
 {
   "name": "mcpr-cli",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "CLI for MCP Router - connect to an MCP HTTP server",
   "main": "dist/mcpr.js",
   "engines": {

@@ -3,12 +3,12 @@ import { executeConnect } from './commands/connect.js';
 import { executeHelp } from './commands/help.js';
 import { executeVersion } from './commands/version.js';
 
-const VERSION = "0.0.1"
+const VERSION = "0.0.4"
 
 // Parse command-line arguments
 const args = process.argv.slice(2);
 const command = args[0] || 'help';
-const commandArgs = args.slice(1); // Get arguments after the command
+const commandArgs = args.slice(1);
 
 // Execute the appropriate command based on the input
 async function main() {
