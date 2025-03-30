@@ -16,9 +16,8 @@ import {
   GetPromptResult,
   ReadResourceResult
 } from '@modelcontextprotocol/sdk/types.js';
+import { VERSION, SERVER_NAME } from '../mcpr.js';
 
-const SERVER_NAME = 'MCP Router';
-const VERSION = '0.0.2';
 
 /**
  * Executes the connect command, connecting to an existing
@@ -290,7 +289,11 @@ class HttpMcpBridgeServer {
         }
         return {
           protocolVersion: request.params.protocolVersion,
-          capabilities: { tools: {} },
+          capabilities: {
+            resources: {},
+            tools: {},
+            prompts: {}
+          },
           serverInfo: {
             name: SERVER_NAME,
             version: VERSION
