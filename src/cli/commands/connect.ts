@@ -320,7 +320,7 @@ class HttpMcpBridgeServer {
     // Call Tool
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
-        const result = await this.client.callTool(request.params.name, request.params.args || {});
+        const result = await this.client.callTool(request.params.name, request.params.arguments || {});
         return result as CallToolResult;
       } catch (error: any) {
         throw new McpError(

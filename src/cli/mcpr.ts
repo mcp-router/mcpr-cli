@@ -3,7 +3,7 @@ import { executeConnect } from './commands/connect.js';
 import { executeHelp } from './commands/help.js';
 import { executeVersion } from './commands/version.js';
 
-const VERSION = "0.0.4"
+const VERSION = "0.0.5"
 
 // Parse command-line arguments
 const args = process.argv.slice(2);
