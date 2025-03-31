@@ -46,13 +46,11 @@ export async function executeConnect(args: string[] = []): Promise<void> {
 function parseArgs(args: string[]): {
   host: string;
   port: number;
-  token: string | null;
 } {
   // Default values
-  const options: { host: string; port: number; token: string | null } = {
+  const options: { host: string; port: number; } = {
     host: 'localhost',
-    port: 3282,
-    token: null
+    port: 3282
   };
   
   // Parse arguments
@@ -67,9 +65,6 @@ function parseArgs(args: string[]): {
       }
     } else if (arg === '--host' && i + 1 < args.length) {
       options.host = args[i + 1];
-      i++;
-    } else if ((arg === '--token' || arg === '-t') && i + 1 < args.length) {
-      options.token = args[i + 1];
       i++;
     }
   }
@@ -247,9 +242,9 @@ class HttpMcpBridgeServer {
   private baseUrl: string;
   private token: string | null;
   
-  constructor(options: { host: string; port: number; token: string | null }) {
+  constructor(options: { host: string; port: number; }) {
     this.baseUrl = `http://${options.host}:${options.port}`;
-    this.token = options.token;
+    this.token = process.env.MCPR_TOKEN || null;
     this.client = new HttpMcpClient(this.baseUrl, this.token);
     
     // Initialize the MCP server
@@ -490,9 +485,8 @@ class HttpMcpBridgeServer {
       console.error('Failed to connect to MCP HTTP Server:', error.message);
       console.error('Make sure the Electron application is running with the HTTP server enabled on port 3282');
       console.error('If the port is different, specify it with --port option');
-      console.error('If authentication is required, provide an access token with --token option');
+      console.error('If authentication is required, set the MCPR_TOKEN environment variable');
       throw error;
     }
   }
 }
-
