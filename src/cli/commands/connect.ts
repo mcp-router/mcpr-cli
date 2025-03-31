@@ -21,7 +21,7 @@ import { VERSION, SERVER_NAME } from '../mcpr.js';
 
 /**
  * Executes the connect command, connecting to an existing
- * MCP HTTP server running in the Electron application and exposing
+ * MCP HTTP server running in the MCP Router application and exposing
  * its capabilities as an MCP server using stdio transport.
  */
 export async function executeConnect(args: string[] = []): Promise<void> {
@@ -454,7 +454,7 @@ class HttpMcpBridgeServer {
         }).finally(() => clearTimeout(timeoutId));
       } catch (fetchError: any) {
         if (fetchError.code === 'ECONNREFUSED') {
-          throw new Error(`Connection refused at ${this.baseUrl}. Make sure the Electron application is running and the HTTP server is enabled.`);
+          throw new Error(`Connection refused at ${this.baseUrl}. Make sure the MCP Router is running.`);
         } else if (fetchError.name === 'AbortError') {
           throw new Error(`Connection timed out after 5 seconds. The server at ${this.baseUrl} is not responding.`);
         } else {
@@ -482,8 +482,7 @@ class HttpMcpBridgeServer {
         throw new Error(`Failed to parse server response as JSON. Server may not be fully initialized.`);
       }
     } catch (error: any) {
-      console.error('Failed to connect to MCP HTTP Server:', error.message);
-      console.error('Make sure the Electron application is running with the HTTP server enabled on port 3282');
+      console.error('Make sure the MCP Router is running');
       console.error('If the port is different, specify it with --port option');
       console.error('If authentication is required, set the MCPR_TOKEN environment variable');
       throw error;
