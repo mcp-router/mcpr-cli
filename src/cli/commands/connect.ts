@@ -17,6 +17,8 @@ import {
   ReadResourceResult
 } from '@modelcontextprotocol/sdk/types.js';
 import { VERSION, SERVER_NAME } from '../mcpr.js';
+import {Client} from "@modelcontextprotocol/sdk/client/index.js";
+import {StreamableHTTPClientTransport} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 
 /**
@@ -25,14 +27,14 @@ import { VERSION, SERVER_NAME } from '../mcpr.js';
  * its capabilities as an MCP server using stdio transport.
  */
 export async function executeConnect(args: string[] = []): Promise<void> {
-  
+
   // Parse arguments (if needed)
   const options = parseArgs(args);
-  
+
   // Create and start the HTTP MCP Bridge Server
   const bridgeServer = new HttpMcpBridgeServer(options);
   await bridgeServer.start();
-  
+
   // Keep the process running until interrupted
   process.on('SIGINT', async () => {
     await bridgeServer.stop();
@@ -52,11 +54,11 @@ function parseArgs(args: string[]): {
     host: 'localhost',
     port: 3282
   };
-  
+
   // Parse arguments
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     if (arg === '--port' && i + 1 < args.length) {
       const port = parseInt(args[i + 1], 10);
       if (!isNaN(port)) {
@@ -68,207 +70,63 @@ function parseArgs(args: string[]): {
       i++;
     }
   }
-  
+
   return options;
 }
 
-/**
- * Interface definitions for HTTP responses
- */
-interface ToolsResponse {
-  tools: any[];
-}
-
-interface ResourcesResponse {
-  resources: any[];
-}
-
-interface PromptsResponse {
-  prompts: any[];
-}
-
-/**
- * HTTP-based MCP client for communicating with the MCP HTTP server
- */
-class HttpMcpClient {
-  private baseUrl: string;
-  private clientName: string | null = null;
-  private token: string | null = null;
-  
-  constructor(baseUrl: string, token: string | null = null) {
-    this.baseUrl = baseUrl;
-    this.token = token;
-  }
-  
-  /**
-   * Set client information
-   * @param name Client name to include in requests
-   */
-  setClientInfo(name: string) {
-    this.clientName = name;
-  }
-  
-  /**
-   * Get common headers for HTTP requests
-   * @returns Headers object with content type and client info
-   */
-  private getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = { 
-      'Content-Type': 'application/json' 
-    };
-    
-    // Add client name to headers if available
-    if (this.clientName) {
-      headers['X-MCP-Client-Name'] = this.clientName;
-    }
-    
-    // Add authorization token if available
-    if (this.token) {
-      headers['X-MCP-Token'] = this.token;
-    }
-    
-    return headers;
-  }
-  
-  /**
-   * List all available tools from all servers
-   */
-  async listTools(): Promise<ToolsResponse> {
-    const response = await fetch(`${this.baseUrl}/api/tools`, {
-      headers: this.getHeaders()
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to list tools: ${response.statusText}`);
-    }
-    return response.json() as Promise<ToolsResponse>;
-  }
-  
-  /**
-   * Call a specific tool
-   * @param name Tool name directly (no parsing)
-   * @param args Arguments for the tool
-   */
-  async callTool(name: string, args: any = {}) {
-    const response = await fetch(`${this.baseUrl}/api/tool-by-name/${encodeURIComponent(name)}`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(args)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to call tool ${name}: ${response.statusText}`);
-    }
-    
-    return response.json();
-  }
-  
-  /**
-   * List all available resources from all servers
-   */
-  async listResources(): Promise<ResourcesResponse> {
-    const response = await fetch(`${this.baseUrl}/api/resources`, {
-      headers: this.getHeaders()
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to list resources: ${response.statusText}`);
-    }
-    return response.json() as Promise<ResourcesResponse>;
-  }
-  
-  /**
-   * Read a specific resource
-   * @param uri Resource URI
-   */
-  async readResource(uri: string) {
-    // Extract server name from resource URI (resource://serverName/path)
-    const match = uri.match(/^resource:\/\/([^\/]+)\/(.+)$/);
-    if (!match) {
-      throw new Error(`Invalid resource URI: ${uri}.`);
-    }
-    
-    const [, serverName, path] = match;
-    
-    const response = await fetch(`${this.baseUrl}/api/resource?serverName=${encodeURIComponent(serverName)}&path=${encodeURIComponent(path)}`, {
-      headers: this.getHeaders()
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to read resource ${uri}: ${response.statusText}`);
-    }
-    
-    return response.json();
-  }
-  
-  /**
-   * List all available prompts from all servers
-   */
-  async listPrompts(): Promise<PromptsResponse> {
-    const response = await fetch(`${this.baseUrl}/api/prompts`, {
-      headers: this.getHeaders()
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to list prompts: ${response.statusText}`);
-    }
-    return response.json() as Promise<PromptsResponse>;
-  }
-  
-  /**
-   * Get a specific prompt
-   * @param name Prompt name in format "serverName_promptName"
-   * @param args Arguments for the prompt
-   */
-  async getPrompt(name: string, args: any = {}) {
-    // Pass the full prompt name directly without splitting
-    const response = await fetch(`${this.baseUrl}/api/prompt/${encodeURIComponent(name)}`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(args)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to get prompt ${name}: ${response.statusText}`);
-    }
-    
-    return response.json();
-  }
-}
 
 /**
  * MCP Bridge Server that connects to an HTTP MCP server and
  * exposes its capabilities as an MCP server using stdio transport
  */
 class HttpMcpBridgeServer {
+  private transport: StreamableHTTPClientTransport;
   private server: Server;
-  private client: HttpMcpClient;
+  private client: Client;
   private baseUrl: string;
   private token: string | null;
-  
+
   constructor(options: { host: string; port: number; }) {
-    this.baseUrl = `http://${options.host}:${options.port}`;
+    this.baseUrl = `http://${options.host}:${options.port}/mcp`;
     this.token = process.env.MCPR_TOKEN || null;
-    this.client = new HttpMcpClient(this.baseUrl, this.token);
-    
+    this.transport = new StreamableHTTPClientTransport(
+        new URL(this.baseUrl),
+        {
+          sessionId: undefined,
+          requestInit: {
+            headers: {
+              'authorization': this.token ? `Bearer ${this.token}` : '',
+            }
+          }
+        }
+    );
+    this.client = new Client({
+      name: "Unknown Client",
+      version: "0.0.1",
+    })
+
     // Initialize the MCP server
     this.server = new Server(
-      {
-        name: SERVER_NAME,
-        version: VERSION
-      },
-      {
-        capabilities: {
-          resources: {},
-          tools: {},
-          prompts: {}
+        {
+          name: SERVER_NAME,
+          version: VERSION
         },
-      }
+        {
+          capabilities: {
+            resources: {},
+            tools: {},
+            prompts: {}
+          },
+        }
     );
-    
+
     // Set up request handlers
     this.setupRequestHandlers();
-    
+
     // Error handling
     this.server.onerror = (error) => console.error('[MCP Bridge Error]', error);
   }
-  
+
   /**
    * Set up request handlers for the MCP server
    */
@@ -279,8 +137,12 @@ class HttpMcpBridgeServer {
       try {
         // Extract client name and set it in the HTTP client
         if (request.params.clientInfo && request.params.clientInfo.name) {
-          const clientName = request.params.clientInfo.name;          
-          this.client.setClientInfo(clientName);
+          const clientName = request.params.clientInfo.name;
+          this.client = new Client({
+            name: clientName,
+            version: "0.0.1",
+          });
+          await this.client.connect(this.transport);
         }
         return {
           protocolVersion: request.params.protocolVersion,
@@ -296,8 +158,8 @@ class HttpMcpBridgeServer {
         };
       } catch (error: any) {
         throw new McpError(
-          ErrorCode.InternalError,
-          `Error during initialization: ${error.message}`
+            ErrorCode.InternalError,
+            `Error during initialization: ${error.message}`
         );
       }
     });
@@ -309,16 +171,19 @@ class HttpMcpBridgeServer {
         return { tools: response.tools || [] };
       } catch (error: any) {
         throw new McpError(
-          ErrorCode.InternalError,
-          `Error listing tools: ${error.message}`
+            ErrorCode.InternalError,
+            `Error listing tools: ${error.message}`
         );
       }
     });
-    
+
     // Call Tool
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
-        const result = await this.client.callTool(request.params.name, request.params.arguments || {});
+        const result = await this.client.callTool({
+          name: request.params.name,
+          arguments: request.params.arguments || {}
+        });
         return result as CallToolResult;
       } catch (error: any) {
         throw new McpError(
@@ -327,7 +192,7 @@ class HttpMcpBridgeServer {
         );
       }
     });
-    
+
     // List Resources
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
       try {
@@ -335,32 +200,34 @@ class HttpMcpBridgeServer {
         return { resources: response.resources || [] };
       } catch (error: any) {
         throw new McpError(
-          ErrorCode.InternalError,
-          `Error listing resources: ${error.message}`
+            ErrorCode.InternalError,
+            `Error listing resources: ${error.message}`
         );
       }
     });
-    
+
     // List Resource Templates
     this.server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
       // HTTP server doesn't explicitly expose resource templates
       // Return empty list for now
       return { resourceTemplates: [] };
     });
-    
+
     // Read Resource
     this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       try {
-        const resource = await this.client.readResource(request.params.uri);
+        const resource = await this.client.readResource({
+          uri: request.params.uri
+        });
         return resource as ReadResourceResult;
       } catch (error: any) {
         throw new McpError(
-          ErrorCode.InternalError,
-          `Error reading resource ${request.params.uri}: ${error.message}`
+            ErrorCode.InternalError,
+            `Error reading resource ${request.params.uri}: ${error.message}`
         );
       }
     });
-    
+
     // List Prompts
     this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
       try {
@@ -368,16 +235,19 @@ class HttpMcpBridgeServer {
         return { prompts: response.prompts || [] };
       } catch (error: any) {
         throw new McpError(
-          ErrorCode.InternalError,
-          `Error listing prompts: ${error.message}`
+            ErrorCode.InternalError,
+            `Error listing prompts: ${error.message}`
         );
       }
     });
-    
+
     // Get Prompt
     this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
       try {
-        const result = await this.client.getPrompt(request.params.name, request.params.args || {});
+        const result = await this.client.getPrompt({
+          name: request.params.name,
+          arguments: request.params.arguments || {}
+        });
         return result as GetPromptResult;
       } catch (error: any) {
         throw new McpError(
@@ -387,40 +257,40 @@ class HttpMcpBridgeServer {
       }
     });
   }
-  
+
   /**
    * Start the MCP server with stdio transport
    */
   async start(): Promise<void> {
     try {
       // First check if the HTTP server is running
-      await this.testConnection();
-      
+      // await this.testConnection();
+
       // Create and connect the stdio transport
       const transport = new StdioServerTransport();
-      
+
       // Add error handling for stdin/stdout streams
       process.stdin.on('error', (err: Error) => {
         console.error('Stdin error:', err);
         process.exit(1);
       });
-      
+
       process.stdout.on('error', (err: Error) => {
         console.error('Stdout error:', err);
         process.exit(1);
       });
-      
+
       // StdioServerTransport doesn't support direct event handlers
       // We'll rely on the Server's error handler instead
-      
+
       await this.server.connect(transport);
-      
+
     } catch (error: any) {
       console.error('Failed to start MCP Bridge Server:', error.message);
       process.exit(1);
     }
   }
-  
+
   /**
    * Stop the MCP server
    */
@@ -447,7 +317,7 @@ class HttpMcpBridgeServer {
         if (this.token) {
           headers['X-MCP-Token'] = this.token;
         }
-        
+
         response = await fetch(`${this.baseUrl}/api/test`, {
           signal: controller.signal,
           headers
@@ -461,12 +331,12 @@ class HttpMcpBridgeServer {
           throw new Error(`Failed to connect to ${this.baseUrl}: ${fetchError.message}`);
         }
       }
-      
+
       if (!response.ok) {
         const statusText = response.statusText ? ` (${response.statusText})` : '';
         throw new Error(`Server responded with status: ${response.status}${statusText}`);
       }
-      
+
       // Define the expected response type and handle parsing errors
       interface ApiTestResponse {
         success: boolean;
@@ -474,7 +344,7 @@ class HttpMcpBridgeServer {
         timestamp: string;
         aggregatorEnabled: boolean;
       }
-      
+
       let data: ApiTestResponse;
       try {
         data = await response.json() as ApiTestResponse;
