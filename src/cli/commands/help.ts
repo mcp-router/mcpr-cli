@@ -16,6 +16,5 @@ export function executeHelp(): void {
   Connect Options:
     --host <host>   Specify the host (default: localhost)
     --port <port>   Specify the port (default: 3282)
-    --token, -t <token>   Provide an access token for authentication
   `);
 }
