@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > Development and support for this repository has been moved to the following repository.
-> https://github.com/mcp-router/mcp-router/tree/main/packages/cli  
+> https://github.com/mcp-router/mcp-router 
 
 Command-line interface for the MCP Router - connect to a running MCP HTTP server via the command line.
 
